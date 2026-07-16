@@ -31,6 +31,7 @@ jobs:
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           WORKSHEET_NAME: Sheet1
           MIN_AMOUNT: "500000"
+          MAX_AGE_DAYS: "90"
           LOOKBACK_DAYS: "3"
         run: python run_daily.py
 

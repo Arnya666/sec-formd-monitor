@@ -7,6 +7,8 @@ environment so the same file works locally and in CI:
     SPREADSHEET_ID            id from the sheet URL (.../spreadsheets/d/<ID>/edit)
     WORKSHEET_NAME            tab name (default Sheet1)
     MIN_AMOUNT                ignore raises under this, USD (default 500000)
+    MAX_AGE_DAYS              ignore raises whose first sale predates the filing by
+                              more than this many days (default 90)
     LOOKBACK_DAYS             days to scan (default 3, to cover weekends)
 
 Exits non-zero when the run looks broken, so a scheduler can alert on it.
@@ -37,6 +39,7 @@ def main():
     spreadsheet_id = env("SPREADSHEET_ID", required=True)
     worksheet = env("WORKSHEET_NAME", "Sheet1")
     min_amount = int(env("MIN_AMOUNT", "500000"))
+    max_age = int(env("MAX_AGE_DAYS", "90"))
     lookback = int(env("LOOKBACK_DAYS", "3"))
 
     client = EdgarClient()
@@ -57,6 +60,8 @@ def main():
     for filing in filings:
         lead = fetch_lead(client, filing)
         if lead is None or lead.is_fund or lead.amount_sold < min_amount:
+            continue
+        if not lead.is_fresh(max_age):
             continue
         leads.append(lead)
 

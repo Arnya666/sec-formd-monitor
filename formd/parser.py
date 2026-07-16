@@ -8,7 +8,8 @@ reads as a sales signal rather than a filing.
 
 import logging
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict
+from datetime import date
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +53,35 @@ class Lead:
     def is_fund(self):
         """True for investment vehicles rather than operating companies."""
         return self.industry in FUND_INDUSTRIES
+
+    @property
+    def deal_age_days(self):
+        """Days between the first sale and the filing landing on EDGAR.
+
+        A filing date is not a funding date. Form D covers continuing offerings
+        and gets filed late, so a filing that arrived today can describe money
+        raised years ago. Age is measured against the filing date rather than
+        today, so a backfill of older days scores the same as a live run.
+        """
+        if not self.first_sale or not self.filed:
+            return None
+        try:
+            sale = date.fromisoformat(self.first_sale)
+            filed = date.fromisoformat(self.filed)
+        except ValueError:
+            return None
+        return (filed - sale).days
+
+    def is_fresh(self, max_age_days):
+        """True when the raise is recent enough to be worth a call.
+
+        Filings with no reported first sale are kept: absent is not the same as
+        old, and dropping them would silently lose real companies.
+        """
+        age = self.deal_age_days
+        if age is None:
+            return True
+        return age <= max_age_days
 
 
 def _text(node, path, default=""):

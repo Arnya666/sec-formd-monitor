@@ -30,12 +30,20 @@ export EDGAR_USER_AGENT="Your Name you@example.com"
 
 The client refuses to start without it, because SEC blocks anonymous callers.
 
-## Two decisions worth explaining
+## Three decisions worth explaining
 
 **Investment vehicles are filtered out.** Roughly 70% of Form D volume is SPVs,
 funds and REIT shells: legal wrappers that hold capital rather than spend it. On
 the sample day that meant 113 of 161 filings were noise. `--operating-only`
 keeps the companies that actually have staff and budgets.
+
+**A filing date is not a funding date.** Form D covers continuing offerings and
+gets filed late, so a filing that lands today can describe money raised in 2022.
+Treating "filed today" as "raised today" quietly fills the sheet with cold
+companies. `--max-age` compares the first sale against the filing date and drops
+anything older. Issuers have 15 days from first sale to file, so most real
+filings score 0 to 15 days; anything far past that is a late or continuing
+offering, not fresh news.
 
 **The sheet is the state store.** Before appending, the job reads back the
 accession numbers already present and drops those from the batch. Re-running
@@ -51,8 +59,8 @@ pip install -r requirements.txt
 # Look at yesterday's filings
 python main.py --days 1
 
-# Real companies only, raises over $1M, written to CSV
-python main.py --days 3 --operating-only --min-amount 1000000 --csv leads.csv
+# Real companies, raises over $1M, deal no older than 90 days, to CSV
+python main.py --days 3 --operating-only --min-amount 1000000 --max-age 90 --csv leads.csv
 
 # Just California
 python main.py --days 5 --operating-only --state CA
@@ -70,6 +78,7 @@ the environment:
 | `SPREADSHEET_ID` | id from the sheet URL | required |
 | `WORKSHEET_NAME` | tab name | `Sheet1` |
 | `MIN_AMOUNT` | ignore raises below this | `500000` |
+| `MAX_AGE_DAYS` | ignore deals older than this at filing | `90` |
 | `LOOKBACK_DAYS` | days to scan per run | `3` |
 
 `.github/workflows/daily.yml` runs it on GitHub Actions on weekday mornings.
