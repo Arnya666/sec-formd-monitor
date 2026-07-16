@@ -1,0 +1,39 @@
+name: Daily Form D pull
+
+on:
+  schedule:
+    # 11:00 UTC on weekdays. EDGAR publishes the previous day's index
+    # overnight, so this runs well after it lands.
+    - cron: "0 11 * * 1-5"
+  workflow_dispatch:        # lets you trigger a run by hand from the Actions tab
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Write service account credentials
+        # The JSON lives in repo secrets, never in git
+        run: echo '${{ secrets.GOOGLE_CREDENTIALS }}' > credentials.json
+
+      - name: Pull filings into the sheet
+        env:
+          EDGAR_USER_AGENT: ${{ secrets.EDGAR_USER_AGENT }}
+          GOOGLE_CREDENTIALS_FILE: credentials.json
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          WORKSHEET_NAME: Sheet1
+          MIN_AMOUNT: "500000"
+          LOOKBACK_DAYS: "3"
+        run: python run_daily.py
+
+      - name: Remove credentials
+        if: always()
+        run: rm -f credentials.json
